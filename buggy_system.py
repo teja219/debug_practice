@@ -36,7 +36,7 @@ class InventoryService:
         item = inventory_db.get(item_id)
         if item is None:
             return False
-        return item["stock"] > qty          # BUG 1: should be >= not >
+        return item["stock"] > qty
 
     def reserve_stock(self, item_id: str, qty: int, order_id: str) -> bool:
         item = inventory_db.get(item_id)
@@ -44,7 +44,7 @@ class InventoryService:
             return False
         # Optimistic locking simulation
         if item["stock"] >= qty:
-            item["stock"] -= qty            # BUG 2: no lock/atomic operation — race condition
+            item["stock"] -= qty
             return True
         return False
 
@@ -56,7 +56,6 @@ class InventoryService:
 class PaymentService:
 
     def charge(self, order_id: str, amount: float) -> dict:
-        # BUG 3: idempotency check is missing — duplicate charges possible
         transaction_id = str(uuid.uuid4())
         payment_db[transaction_id] = {
             "order_id": order_id,
@@ -67,7 +66,7 @@ class PaymentService:
 
     def refund(self, transaction_id: str) -> bool:
         if transaction_id in payment_db:
-            del payment_db[transaction_id]  # BUG 4: deletes record instead of marking refunded
+            del payment_db[transaction_id]
             return True
         return False
 
@@ -79,7 +78,7 @@ class PaymentService:
 class NotificationService:
 
     def send_confirmation(self, order_id: str, email: str):
-        for attempt in range(4):            # BUG 5: retries 4 times, spec says max 3
+        for attempt in range(4):
             success = self._send_email(email, order_id)
             if success:
                 return
@@ -130,7 +129,7 @@ def create_order(user_id: str, item_id: str, qty: int, amount: float, email: str
         "status": "confirmed"
     }
 
-    # Step 5: Send notification — BUG 6: called synchronously, blocks the response
+    # Step 5: Send notification
     notification_svc.send_confirmation(order_id, email)
 
     return {"status": "success", "order_id": order_id}
